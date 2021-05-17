@@ -104,46 +104,59 @@ app.get('/', async (_req, res) => {
       const collection = db.collection('registrations');
       const results = await collection.find({}).toArray();
 
-      const records = results.map(r => {
-        const sessions = r.sessions.reduce(
-          (acc, currVal) => {
-            acc[currVal.id] = 'x';
-            return acc;
-          },
-          { ...initialValue }
-        );
+      const { records, sessionTotals } = results.reduce(
+        (acc, currRec) => {
+          let sessions = { ...initialValue };
 
-        return {
-          id: r._id,
-          firstName: r.firstName,
-          lastName: r.lastName,
-          email: r.email,
-          phone: formatPhoneNumber(r.phone),
-          city: r.address.city,
-          state: r.address.state,
-          ...sessions,
-          wiaaClass: r.wiaaInformation.wiaaClass,
-          wiaaNumber: r.wiaaInformation.wiaaNumber,
-          associations: r.wiaaInformation.associations,
-          hsCrewDeal: r.hsCrewDeal ? 'x' : '',
-          crewMember1: r.hsCrewDeal ? r.crewMembers[0] : '',
-          crewMember2: r.hsCrewDeal ? r.crewMembers[1] : '',
-          total: (r.total / 100).toFixed(2),
-          paymentMethod: r.paymentMethod,
-          paymentStatus: r.paymentStatus,
-          stripeId: r.stripeId,
-          createdAt: r.createdAt,
-        };
-      });
+          currRec.sessions.forEach(s => {
+            sessions[s.id] = 'x';
 
-      const sessionTotals = results.reduce(
-        (acc, currVal) => {
-          currVal.sessions.forEach(s => {
-            acc[s.id] = Number(acc[s.id]) + 1;
+            if (currRec.paymentStatus === 'succeeded') {
+              acc.sessionTotals[s.id] = Number(acc.sessionTotals[s.id]) + 1;
+            }
           });
+
+          acc.records = [
+            ...acc.records,
+            {
+              id: currRec._id,
+              firstName: currRec.firstName,
+              lastName: currRec.lastName,
+              email: currRec.email,
+              phone: formatPhoneNumber(currRec.phone),
+              city: currRec.address.city,
+              state: currRec.address.state,
+              ...sessions,
+              wiaaClass: currRec.wiaaInformation.wiaaClass,
+              wiaaNumber: currRec.wiaaInformation.wiaaNumber,
+              associations: currRec.wiaaInformation.associations,
+              hsCrewDeal: currRec.hsCrewDeal ? 'x' : '',
+              crewMember1: currRec.hsCrewDeal ? currRec.crewMembers[0] : '',
+              crewMember2: currRec.hsCrewDeal ? currRec.crewMembers[1] : '',
+              total: (currRec.total / 100).toFixed(2),
+              paymentMethod: currRec.paymentMethod,
+              paymentStatus: currRec.paymentStatus,
+              stripeId: currRec.stripeId,
+              createdAt: currRec.createdAt,
+            },
+          ];
+
           return acc;
         },
-        { ...initialValue }
+        { records: [], sessionTotals: { ...initialValue } }
+      );
+
+      const { attending, notAttending } = records.reduce(
+        (acc, currRec) => {
+          if (currRec.paymentStatus === 'succeeded') {
+            acc.attending = [...acc.attending, currRec];
+            return acc;
+          } else {
+            acc.notAttending = [...acc.notAttending, currRec];
+            return acc;
+          }
+        },
+        { attending: [], notAttending: [] }
       );
 
       const bottomFooter = {
@@ -183,13 +196,74 @@ app.get('/', async (_req, res) => {
         ...sessionTotals,
       };
 
+      const emptyRow = {
+        id: '',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        city: '',
+        state: '',
+        1: '',
+        2: '',
+        3: '',
+        4: '',
+        5: '',
+        6: '',
+        7: '',
+        8: '',
+        9: '',
+        10: '',
+        11: '',
+        12: '',
+        13: '',
+        14: '',
+        15: '',
+        16: '',
+      };
+
+      const noLongerAttendingHeading = {
+        id: 'No longer attending:',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        city: '',
+        state: '',
+        1: '',
+        2: '',
+        3: '',
+        4: '',
+        5: '',
+        6: '',
+        7: '',
+        8: '',
+        9: '',
+        10: '',
+        11: '',
+        12: '',
+        13: '',
+        14: '',
+        15: '',
+        16: '',
+      };
+
       records.push(bottomFooter);
       records.push(totalsRow);
 
-      await csvWriter.writeRecords(records);
+      const rows = [
+        ...attending,
+        bottomFooter,
+        totalsRow,
+        emptyRow,
+        noLongerAttendingHeading,
+        ...notAttending,
+      ];
+
+      await csvWriter.writeRecords(rows);
 
       await client.close();
-      res.send({ data: results });
+      res.send({ success: true, data: results });
     });
   } catch (error) {
     console.log(error);

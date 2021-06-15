@@ -109,11 +109,14 @@ app.get('/', async (_req, res) => {
           let sessions = { ...initialValue };
 
           currRec.sessions.forEach(s => {
-            sessions[s.id] = 'x';
-
-            if (currRec.paymentStatus === 'succeeded') {
+            if (s.attending === true) {
+              sessions[s.id] = 'x';
               acc.sessionTotals[s.id] = Number(acc.sessionTotals[s.id]) + 1;
             }
+
+            // if (currRec.paymentStatus === 'succeeded') {
+            //   acc.sessionTotals[s.id] = Number(acc.sessionTotals[s.id]) + 1;
+            // }
           });
 
           acc.records = [
@@ -127,6 +130,7 @@ app.get('/', async (_req, res) => {
               city: currRec.address.city,
               state: currRec.address.state,
               ...sessions,
+              sessions: currRec.sessions,
               wiaaClass: currRec.wiaaInformation.wiaaClass,
               wiaaNumber: currRec.wiaaInformation.wiaaNumber,
               associations: currRec.wiaaInformation.associations,
@@ -148,13 +152,23 @@ app.get('/', async (_req, res) => {
 
       const { attending, notAttending } = records.reduce(
         (acc, currRec) => {
-          if (currRec.paymentStatus === 'succeeded') {
+          const isAttending = currRec.sessions.some(s => s.attending === true);
+
+          if (isAttending) {
             acc.attending = [...acc.attending, currRec];
-            return acc;
           } else {
             acc.notAttending = [...acc.notAttending, currRec];
-            return acc;
           }
+
+          return acc;
+
+          // if (currRec.paymentStatus === 'succeeded') {
+          //   acc.attending = [...acc.attending, currRec];
+          //   return acc;
+          // } else {
+          //   acc.notAttending = [...acc.notAttending, currRec];
+          //   return acc;
+          // }
         },
         { attending: [], notAttending: [] }
       );
@@ -307,31 +321,32 @@ app.get('/sort-by-kaukauna-sessions', async (_req, res) => {
 
       const sessions = results.reduceRight(
         (acc, cr) => {
-          if (cr.paymentStatus === 'succeeded') {
-            cr.sessions.forEach(s => {
-              const reg = {
-                id: cr._id,
-                firstName: cr.firstName,
-                lastName: cr.lastName,
-                email: cr.email,
-                phone: formatPhoneNumber(cr.phone),
-                city: cr.address.city,
-                state: cr.address.state,
-                foodAllergies: cr.foodAllergies,
-                ecName: cr.emergencyContact.name,
-                ecPhone: formatPhoneNumber(cr.emergencyContact.phone),
-                wiaaClass: cr.wiaaInformation.wiaaClass,
-                wiaaNumber: cr.wiaaInformation.wiaaNumber,
-                associations: cr.wiaaInformation.associations,
-                hsCrewDeal: cr.hsCrewDeal ? 'x' : '',
-                crewMember1: cr.hsCrewDeal ? cr.crewMembers[0] : '',
-                crewMember2: cr.hsCrewDeal ? cr.crewMembers[1] : '',
-                total: (cr.total / 100).toFixed(2),
-                paymentMethod: cr.paymentMethod,
-                paymentStatus: cr.paymentStatus,
-                stripeId: cr.stripeId,
-                createdAt: cr.createdAt,
-              };
+          cr.sessions.forEach(s => {
+            const reg = {
+              id: cr._id,
+              firstName: cr.firstName,
+              lastName: cr.lastName,
+              email: cr.email,
+              phone: formatPhoneNumber(cr.phone),
+              city: cr.address.city,
+              state: cr.address.state,
+              foodAllergies: cr.foodAllergies,
+              ecName: cr.emergencyContact.name,
+              ecPhone: formatPhoneNumber(cr.emergencyContact.phone),
+              wiaaClass: cr.wiaaInformation.wiaaClass,
+              wiaaNumber: cr.wiaaInformation.wiaaNumber,
+              associations: cr.wiaaInformation.associations,
+              hsCrewDeal: cr.hsCrewDeal ? 'x' : '',
+              crewMember1: cr.hsCrewDeal ? cr.crewMembers[0] : '',
+              crewMember2: cr.hsCrewDeal ? cr.crewMembers[1] : '',
+              total: (cr.total / 100).toFixed(2),
+              paymentMethod: cr.paymentMethod,
+              paymentStatus: cr.paymentStatus,
+              stripeId: cr.stripeId,
+              createdAt: cr.createdAt,
+            };
+
+            if (s.attending === true) {
               if (s.id == 1) acc.kauWc = [...acc.kauWc, reg];
               if (s.id == 2) acc.kauMc = [...acc.kauMc, reg];
               if (s.id == 3) acc.kauFri = [...acc.kauFri, reg];
@@ -340,8 +355,8 @@ app.get('/sort-by-kaukauna-sessions', async (_req, res) => {
               if (s.id == 6) acc.kauSatPm3 = [...acc.kauSatPm3, reg];
               if (s.id == 7) acc.kauSun2 = [...acc.kauSun2, reg];
               if (s.id == 8) acc.kauSun3 = [...acc.kauSun3, reg];
-            });
-          }
+            }
+          });
 
           return acc;
         },

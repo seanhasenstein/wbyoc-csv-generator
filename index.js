@@ -447,6 +447,277 @@ app.get('/sort-by-kaukauna-sessions', async (_req, res) => {
   }
 });
 
+app.get('/sort-by-plymouth-sessions', async (_req, res) => {
+  try {
+    const csvWriter = createCsvWriter({
+      path: `./dist/registrations/sorted-by-sessions/wbyoc-plymouth-2021-sorted-by-sessions-${timestamp}.csv`,
+      header: [
+        { id: 'id', title: 'ID' },
+        { id: 'firstName', title: 'FIRST NAME' },
+        { id: 'lastName', title: 'LAST NAME' },
+        { id: 'email', title: 'EMAIL' },
+        { id: 'phone', title: 'PHONE' },
+        { id: 'city', title: 'CITY' },
+        { id: 'state', title: 'STATE' },
+        { id: 'foodAllergies', title: 'FOOD ALLERGIES' },
+        { id: 'ecName', title: 'EC NAME' },
+        { id: 'ecPhone', title: 'EC PHONE' },
+        { id: 'wiaaClass', title: 'WIAA CLASS' },
+        { id: 'wiaaNumber', title: 'WIAA NUMBER' },
+        { id: 'associations', title: 'ASSOCIATIONS' },
+        { id: 'hsCrewDeal', title: 'HS CREW DEAL' },
+        { id: 'crewMember1', title: 'CREW MEMBER 1' },
+        { id: 'crewMember2', title: 'CREW MEMBER 2' },
+        { id: 'total', title: 'TOTAL' },
+        { id: 'paymentMethod', title: 'PMT METHOD' },
+        { id: 'paymentStatus', title: 'PMT STATUS' },
+        { id: 'stripeId', title: 'TRANSACTION ID' },
+        { id: 'createdAt', title: 'TIMESTAMP' },
+      ],
+    });
+    const client = new MongoClient(url, { useUnifiedTopology: true });
+    await client.connect(async () => {
+      const db = client.db(dbName);
+      console.log('Connected to MongoDb successfully');
+      const collection = db.collection('registrations');
+      const results = await collection.find({}).toArray();
+
+      const sessions = results.reduceRight(
+        (acc, cr) => {
+          cr.sessions.forEach(s => {
+            const reg = {
+              id: cr._id,
+              firstName: cr.firstName,
+              lastName: cr.lastName,
+              email: cr.email,
+              phone: formatPhoneNumber(cr.phone),
+              city: cr.address.city,
+              state: cr.address.state,
+              foodAllergies: cr.foodAllergies,
+              ecName: cr.emergencyContact.name,
+              ecPhone: formatPhoneNumber(cr.emergencyContact.phone),
+              wiaaClass: cr.wiaaInformation.wiaaClass,
+              wiaaNumber: cr.wiaaInformation.wiaaNumber,
+              associations: cr.wiaaInformation.associations,
+              hsCrewDeal: cr.hsCrewDeal ? 'x' : '',
+              crewMember1: cr.hsCrewDeal ? cr.crewMembers[0] : '',
+              crewMember2: cr.hsCrewDeal ? cr.crewMembers[1] : '',
+              total: (cr.total / 100).toFixed(2),
+              paymentMethod: cr.paymentMethod,
+              paymentStatus: cr.paymentStatus,
+              stripeId: cr.stripeId,
+              createdAt: cr.createdAt,
+            };
+
+            if (s.attending === true) {
+              if (s.id == 9) acc.plyWc = [...acc.plyWc, reg];
+              if (s.id == 10) acc.plyMc = [...acc.plyMc, reg];
+              if (s.id == 11) acc.plyFri = [...acc.plyFri, reg];
+              if (s.id == 12) acc.plySatAm = [...acc.plySatAm, reg];
+              if (s.id == 13) acc.plySatPm2 = [...acc.plySatPm2, reg];
+              if (s.id == 14) acc.plySatPm3 = [...acc.plySatPm3, reg];
+              if (s.id == 15) acc.plySun2 = [...acc.plySun2, reg];
+              if (s.id == 16) acc.plySun3 = [...acc.plySun3, reg];
+            }
+          });
+
+          return acc;
+        },
+        {
+          plyWc: [],
+          plyMc: [],
+          plyFri: [],
+          plySatAm: [],
+          plySatPm2: [],
+          plySatPm3: [],
+          plySun2: [],
+          plySun3: [],
+        }
+      );
+
+      const blankRow = {
+        id: '',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        city: '',
+        state: '',
+        foodAllergies: '',
+        ecName: '',
+        ecPhone: '',
+        wiaaClass: '',
+        wiaaNumber: '',
+        associations: '',
+        hsCrewDeal: '',
+        crewMember1: '',
+        crewMember2: '',
+        total: '',
+        paymentMethod: '',
+        paymentStatus: '',
+        stripeId: '',
+        createdAt: '',
+      };
+
+      const rows = [
+        { id: `PLY WC SAT/SUN [${sessions.plyWc.length}]` },
+        ...sessions.plyWc,
+        blankRow,
+        { id: `PLY MC SAT/SUN [${sessions.plyMc.length}]` },
+        ...sessions.plyMc,
+        blankRow,
+        { id: `PLY HS FRI [${sessions.plyFri.length}]` },
+        ...sessions.plyFri,
+        blankRow,
+        { id: `PLY HS SAT AM [${sessions.plySatAm.length}]` },
+        ...sessions.plySatAm,
+        blankRow,
+        {
+          id: `PLY HS SAT PM (2P) [${sessions.plySatPm2.length}]`,
+        },
+        ...sessions.plySatPm2,
+        blankRow,
+        {
+          id: `PLY HS SAT PM (3P) [${sessions.plySatPm3.length}]`,
+        },
+        ...sessions.plySatPm3,
+        blankRow,
+        { id: `PLY HS SUN (2P) [${sessions.plySun2.length}]` },
+        ...sessions.plySun2,
+        blankRow,
+        { id: `PLY HS SUN (3P) [${sessions.plySun3.length}]` },
+        ...sessions.plySun3,
+      ];
+
+      await csvWriter.writeRecords(rows);
+
+      await client.close();
+      res.send({
+        success: true,
+        plyWc: sessions.plyWc.length,
+        plyMc: sessions.plyMc.length,
+        plyFri: sessions.plyFri.length,
+        plySatAm: sessions.plySatAm.length,
+        plySatPm2: sessions.plySatPm2.length,
+        plySatPm3: sessions.plySatPm3.length,
+        plySun2: sessions.plySun2.length,
+        plySun3: sessions.plySun3.length,
+        sessions,
+      });
+    });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get('/kaukauna-csv-labels', async (_req, res) => {
+  try {
+    const csvWriter = createCsvWriter({
+      path: `./dist/registrations/labels-csv/labels-csv-wbyoc-kaukauna-2021-${timestamp}.csv`,
+      header: [{ id: 'name', title: '' }],
+    });
+    const client = new MongoClient(url, { useUnifiedTopology: true });
+    await client.connect(async () => {
+      const db = client.db(dbName);
+      console.log('Connected to MongoDb successfully');
+      const collection = db.collection('registrations');
+      const results = await collection.find({}).toArray();
+
+      const rows = results.reduce((accumulator, currentRegistration) => {
+        let isAttending = false;
+
+        currentRegistration.sessions.forEach(session => {
+          if (session.location === 'Kaukauna' && session.attending === true) {
+            isAttending = true;
+          }
+        });
+
+        if (isAttending) {
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+        }
+
+        return accumulator;
+      }, []);
+
+      await csvWriter.writeRecords(rows);
+
+      await client.close();
+      res.send({
+        success: true,
+        length: rows.length / 4,
+        data: rows,
+      });
+    });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get('/plymouth-csv-labels', async (_req, res) => {
+  try {
+    const csvWriter = createCsvWriter({
+      path: `./dist/registrations/labels-csv/labels-csv-wbyoc-plymouth-2021-${timestamp}.csv`,
+      header: [{ id: 'name', title: '' }],
+    });
+    const client = new MongoClient(url, { useUnifiedTopology: true });
+    await client.connect(async () => {
+      const db = client.db(dbName);
+      console.log('Connected to MongoDb successfully');
+      const collection = db.collection('registrations');
+      const results = await collection.find({}).toArray();
+
+      const rows = results.reduce((accumulator, currentRegistration) => {
+        let isAttending = false;
+
+        currentRegistration.sessions.forEach(session => {
+          if (session.location === 'Plymouth' && session.attending === true) {
+            isAttending = true;
+          }
+        });
+
+        if (isAttending) {
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+          accumulator.push({
+            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+          });
+        }
+
+        return accumulator;
+      }, []);
+
+      await csvWriter.writeRecords(rows);
+
+      await client.close();
+      res.send({
+        success: true,
+        length: rows.length / 4,
+        data: rows,
+      });
+    });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

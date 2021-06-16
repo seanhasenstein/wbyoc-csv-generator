@@ -58,7 +58,7 @@ const timestamp = `${year}-${month}-${day}-${hour}:${min}:${sec}`;
 app.get('/', async (_req, res) => {
   try {
     const csvWriter = createCsvWriter({
-      path: `./dist/registrations/wbyoc-2021-registrations-${timestamp}.csv`,
+      path: `./dist/registrations/main/wbyoc-2021-registrations-${timestamp}.csv`,
       header: [
         { id: 'id', title: 'ID' },
         { id: 'firstName', title: 'FIRST NAME' },
@@ -710,6 +710,105 @@ app.get('/plymouth-csv-labels', async (_req, res) => {
       res.send({
         success: true,
         length: rows.length / 4,
+        data: rows,
+      });
+    });
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+app.get('/kaukauna-wiaa-form', async (_req, res) => {
+  try {
+    const csvWriter = createCsvWriter({
+      path: `./dist/registrations/wiaa-form/wiaa-form-kaukauna-sorted-by-day-${timestamp}.csv`,
+      header: [
+        { id: 'name', title: '' },
+        { id: 'city', title: '' },
+        { id: 'wiaaNumber', title: '' },
+      ],
+    });
+
+    const client = new MongoClient(url, { useUnifiedTopology: true });
+    await client.connect(async () => {
+      const db = client.db(dbName);
+      console.log('Connected to MongoDb successfully');
+      const collection = db.collection('registrations');
+      const results = await collection.find({}).toArray();
+
+      const rows = results.reduce(
+        (accumulator, currentRegistration) => {
+          currentRegistration.sessions.forEach(s => {
+            if (
+              s.attending &&
+              s.location === 'Kaukauna' &&
+              s.category === 'High School'
+            ) {
+              const { firstName, lastName, address, wiaaInformation, ...rest } =
+                currentRegistration;
+              const row = {
+                name: `${firstName} ${lastName}`,
+                city: address.city,
+                wiaaNumber: wiaaInformation.wiaaNumber,
+              };
+              if (s.id == 3) {
+                accumulator.friday.push(row);
+                accumulator.friday.push(row);
+                accumulator.friday.push(row);
+                accumulator.friday.push(row);
+              }
+              if (s.id == 4) {
+                accumulator.satam.push(row);
+                accumulator.satam.push(row);
+                accumulator.satam.push(row);
+                accumulator.satam.push(row);
+              }
+              if (s.id == 5 || s.id == 6) {
+                accumulator.satpm.push(row);
+                accumulator.satpm.push(row);
+                accumulator.satpm.push(row);
+                accumulator.satpm.push(row);
+              }
+              if (s.id == 7 || s.id == 8) {
+                accumulator.sunday.push(row);
+                accumulator.sunday.push(row);
+                accumulator.sunday.push(row);
+                accumulator.sunday.push(row);
+              }
+            }
+          });
+          return accumulator;
+        },
+        {
+          friday: [],
+          satam: [],
+          satpm: [],
+          sunday: [],
+        }
+      );
+
+      const formattedRows = [
+        { name: 'FRIDAY CAMPERS', city: '', wiaaNumber: '' },
+        ...rows.friday,
+        { name: 'SAT AM CAMPERS', city: '', wiaaNumber: '' },
+        ...rows.satam,
+        { name: 'SAT PM CAMPERS', city: '', wiaaNumber: '' },
+        ...rows.satpm,
+        { name: 'SUNDAY CAMPERS', city: '', wiaaNumber: '' },
+        ...rows.sunday,
+      ];
+
+      await csvWriter.writeRecords(formattedRows);
+
+      await client.close();
+      res.send({
+        success: true,
+        totals: {
+          friday: rows.friday.length,
+          satam: rows.satam.length,
+          satpm: rows.satpm.length,
+          sunday: rows.sunday.length,
+        },
         data: rows,
       });
     });

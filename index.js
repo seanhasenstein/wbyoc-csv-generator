@@ -734,7 +734,11 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
       const db = client.db(dbName);
       console.log('Connected to MongoDb successfully');
       const collection = db.collection('registrations');
-      const results = await collection.find({}).toArray();
+      const results = await collection.find({}).sort({ lastName: 1 }).toArray();
+
+      results.sort((a, b) => {
+        return a.lastName - b.lastName;
+      });
 
       const rows = results.reduce(
         (accumulator, currentRegistration) => {
@@ -751,6 +755,7 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
                 city: address.city,
                 wiaaNumber: wiaaInformation.wiaaNumber,
               };
+
               if (s.id == 3) {
                 accumulator.friday.push(row);
                 accumulator.friday.push(row);

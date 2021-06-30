@@ -748,6 +748,7 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
               s.location === 'Kaukauna' &&
               s.category === 'High School'
             ) {
+
               const { firstName, lastName, address, wiaaInformation, ...rest } =
                 currentRegistration;
               const row = {
@@ -756,35 +757,38 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
                 wiaaNumber: wiaaInformation.wiaaNumber,
               };
 
-              if (s.id == 3) {
-                accumulator.friday.push(row);
-                accumulator.friday.push(row);
-                accumulator.friday.push(row);
-                accumulator.friday.push(row);
-              }
-              if (s.id == 4) {
-                accumulator.satam.push(row);
-                accumulator.satam.push(row);
-                accumulator.satam.push(row);
-                accumulator.satam.push(row);
-              }
-              if (s.id == 5 || s.id == 6) {
-                accumulator.satpm.push(row);
-                accumulator.satpm.push(row);
-                accumulator.satpm.push(row);
-                accumulator.satpm.push(row);
-              }
-              if (s.id == 7 || s.id == 8) {
-                accumulator.sunday.push(row);
-                accumulator.sunday.push(row);
-                accumulator.sunday.push(row);
-                accumulator.sunday.push(row);
-              }
+              accumulator.combined.push(row);
+
+              // if (s.id == 3) {
+              //   accumulator.friday.push(row);
+              //   // accumulator.friday.push(row);
+              //   // accumulator.friday.push(row);
+              //   // accumulator.friday.push(row);
+              // }
+              // if (s.id == 4) {
+              //   accumulator.satam.push(row);
+              //   // accumulator.satam.push(row);
+              //   // accumulator.satam.push(row);
+              //   // accumulator.satam.push(row);
+              // }
+              // if (s.id == 5 || s.id == 6) {
+              //   accumulator.satpm.push(row);
+              //   // accumulator.satpm.push(row);
+              //   // accumulator.satpm.push(row);
+              //   // accumulator.satpm.push(row);
+              // }
+              // if (s.id == 7 || s.id == 8) {
+              //   accumulator.sunday.push(row);
+              //   // accumulator.sunday.push(row);
+              //   // accumulator.sunday.push(row);
+              //   // accumulator.sunday.push(row);
+              // }
             }
           });
           return accumulator;
         },
         {
+          combined: [],
           friday: [],
           satam: [],
           satpm: [],
@@ -793,14 +797,15 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
       );
 
       const formattedRows = [
-        { name: 'FRIDAY CAMPERS', city: '', wiaaNumber: '' },
-        ...rows.friday,
-        { name: 'SAT AM CAMPERS', city: '', wiaaNumber: '' },
-        ...rows.satam,
-        { name: 'SAT PM CAMPERS', city: '', wiaaNumber: '' },
-        ...rows.satpm,
-        { name: 'SUNDAY CAMPERS', city: '', wiaaNumber: '' },
-        ...rows.sunday,
+        // { name: 'FRIDAY CAMPERS', city: '', wiaaNumber: '' },
+        // ...rows.friday,
+        // { name: 'SAT AM CAMPERS', city: '', wiaaNumber: '' },
+        // ...rows.satam,
+        // { name: 'SAT PM CAMPERS', city: '', wiaaNumber: '' },
+        // ...rows.satpm,
+        // { name: 'SUNDAY CAMPERS', city: '', wiaaNumber: '' },
+        // ...rows.sunday,
+        ...rows.combined
       ];
 
       await csvWriter.writeRecords(formattedRows);

@@ -668,7 +668,7 @@ app.get('/plymouth-csv-labels', async (_req, res) => {
   try {
     const csvWriter = createCsvWriter({
       path: `./dist/registrations/labels-csv/labels-csv-wbyoc-plymouth-2021-${timestamp}.csv`,
-      header: [{ id: 'name', title: '' }],
+      header: ['name'],
     });
     const client = new MongoClient(url, { useUnifiedTopology: true });
     await client.connect(async () => {
@@ -677,32 +677,35 @@ app.get('/plymouth-csv-labels', async (_req, res) => {
       const collection = db.collection('registrations');
       const results = await collection.find({}).toArray();
 
-      const rows = results.reduce((accumulator, currentRegistration) => {
-        let isAttending = false;
+      const sortedResultsByName = results.sort((a, b) => {
+        if (a.lastName === b.lastName)
+          return a.firstName < b.firstName ? -1 : 1;
+        return a.lastName < b.lastName ? -1 : 1;
+      });
 
-        currentRegistration.sessions.forEach(session => {
-          if (session.location === 'Plymouth' && session.attending === true) {
-            isAttending = true;
-          }
-        });
+      const rows = sortedResultsByName.reduce(
+        (accumulator, currentRegistration) => {
+          currentRegistration.sessions.forEach(session => {
+            if (session.location === 'Plymouth' && session.attending === true) {
+              accumulator.push({
+                name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+              });
+              accumulator.push({
+                name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+              });
+              accumulator.push({
+                name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+              });
+              accumulator.push({
+                name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
+              });
+            }
+          });
 
-        if (isAttending) {
-          accumulator.push({
-            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
-          });
-          accumulator.push({
-            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
-          });
-          accumulator.push({
-            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
-          });
-          accumulator.push({
-            name: `${currentRegistration.firstName} ${currentRegistration.lastName}`,
-          });
-        }
-
-        return accumulator;
-      }, []);
+          return accumulator;
+        },
+        []
+      );
 
       await csvWriter.writeRecords(rows);
 
@@ -718,15 +721,11 @@ app.get('/plymouth-csv-labels', async (_req, res) => {
   }
 });
 
-app.get('/kaukauna-wiaa-form', async (_req, res) => {
+app.get('/plymouth-wiaa-form', async (_req, res) => {
   try {
     const csvWriter = createCsvWriter({
-      path: `./dist/registrations/wiaa-form/wiaa-form-kaukauna-sorted-by-day-${timestamp}.csv`,
-      header: [
-        { id: 'name', title: '' },
-        { id: 'city', title: '' },
-        { id: 'wiaaNumber', title: '' },
-      ],
+      path: `./dist/registrations/wiaa-form/wiaa-form-plymouth-sorted-by-day-${timestamp}.csv`,
+      header: ['name', 'blank1', 'city', 'blank2', 'wiaaNumber'],
     });
 
     const client = new MongoClient(url, { useUnifiedTopology: true });
@@ -737,6 +736,8 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
       const results = await collection.find({}).sort({ lastName: 1 }).toArray();
 
       results.sort((a, b) => {
+        if (a.lastName === b.lastName)
+          return a.firstName < b.firstName ? -1 : 1;
         return a.lastName - b.lastName;
       });
 
@@ -745,43 +746,46 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
           currentRegistration.sessions.forEach(s => {
             if (
               s.attending &&
-              s.location === 'Kaukauna' &&
+              s.location === 'Plymouth' &&
               s.category === 'High School'
             ) {
-
               const { firstName, lastName, address, wiaaInformation, ...rest } =
                 currentRegistration;
               const row = {
                 name: `${firstName} ${lastName}`,
+                blank1: '',
                 city: address.city,
+                blank2: '',
                 wiaaNumber: wiaaInformation.wiaaNumber,
               };
 
+              // USE THIS FOR THE FINAL WIAA FORM
               accumulator.combined.push(row);
 
-              // if (s.id == 3) {
+              // USE THIS TO SEPARATE PER SESSION
+              // if (s.id == 11) {
               //   accumulator.friday.push(row);
-              //   // accumulator.friday.push(row);
-              //   // accumulator.friday.push(row);
-              //   // accumulator.friday.push(row);
+              //   accumulator.friday.push(row);
+              //   accumulator.friday.push(row);
+              //   accumulator.friday.push(row);
               // }
-              // if (s.id == 4) {
+              // if (s.id == 12) {
               //   accumulator.satam.push(row);
-              //   // accumulator.satam.push(row);
-              //   // accumulator.satam.push(row);
-              //   // accumulator.satam.push(row);
+              //   accumulator.satam.push(row);
+              //   accumulator.satam.push(row);
+              //   accumulator.satam.push(row);
               // }
-              // if (s.id == 5 || s.id == 6) {
+              // if (s.id == 13 || s.id == 14) {
               //   accumulator.satpm.push(row);
-              //   // accumulator.satpm.push(row);
-              //   // accumulator.satpm.push(row);
-              //   // accumulator.satpm.push(row);
+              //   accumulator.satpm.push(row);
+              //   accumulator.satpm.push(row);
+              //   accumulator.satpm.push(row);
               // }
-              // if (s.id == 7 || s.id == 8) {
+              // if (s.id == 15 || s.id == 16) {
               //   accumulator.sunday.push(row);
-              //   // accumulator.sunday.push(row);
-              //   // accumulator.sunday.push(row);
-              //   // accumulator.sunday.push(row);
+              //   accumulator.sunday.push(row);
+              //   accumulator.sunday.push(row);
+              //   accumulator.sunday.push(row);
               // }
             }
           });
@@ -797,15 +801,39 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
       );
 
       const formattedRows = [
-        // { name: 'FRIDAY CAMPERS', city: '', wiaaNumber: '' },
+        // {
+        //   name: "FRIDAY CAMPERS",
+        //   blank1: "",
+        //   city: "",
+        //   blank2: "",
+        //   wiaaNumber: "",
+        // },
         // ...rows.friday,
-        // { name: 'SAT AM CAMPERS', city: '', wiaaNumber: '' },
+        // {
+        //   name: "SAT AM CAMPERS",
+        //   blank1: "",
+        //   city: "",
+        //   blank2: "",
+        //   wiaaNumber: "",
+        // },
         // ...rows.satam,
-        // { name: 'SAT PM CAMPERS', city: '', wiaaNumber: '' },
+        // {
+        //   name: "SAT PM CAMPERS",
+        //   blank1: "",
+        //   city: "",
+        //   blank2: "",
+        //   wiaaNumber: "",
+        // },
         // ...rows.satpm,
-        // { name: 'SUNDAY CAMPERS', city: '', wiaaNumber: '' },
+        // {
+        //   name: "SUNDAY CAMPERS",
+        //   blank1: "",
+        //   city: "",
+        //   blank2: "",
+        //   wiaaNumber: "",
+        // },
         // ...rows.sunday,
-        ...rows.combined
+        ...rows.combined,
       ];
 
       await csvWriter.writeRecords(formattedRows);
@@ -814,6 +842,7 @@ app.get('/kaukauna-wiaa-form', async (_req, res) => {
       res.send({
         success: true,
         totals: {
+          combined: rows.combined.length,
           friday: rows.friday.length,
           satam: rows.satam.length,
           satpm: rows.satpm.length,
